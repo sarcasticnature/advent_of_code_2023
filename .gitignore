@@ -1,4 +1,5 @@
-*.txt # ignore input data files
+# ignore input data files
+*.txt
 dist
 dist-*
 cabal-dev
