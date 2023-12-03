@@ -14,8 +14,11 @@ main = do
     putStrLn "Part 2:"
     -- TODO: only iterate over the contents once
     let pm = createPartMap (length $ head $ lines contents) $ getPartNums $ indexCells $ lines contents
-    --print $ sumGears pm $ indexCells $ lines contents
-    print $ gearList pm $ indexCells $ lines contents
+    print $ sumGears pm $ indexCells $ lines contents
+    --let spots = concat $ gearSpots pm $ indexCells $ lines contents
+    --print $ spotCells spots $ indexCells $ lines contents
+    --print $ singleGearIdx pm $ indexCells $ lines contents
+    --print $ getPartNums $ indexCells $ lines contents
 
 -- data
 
@@ -24,6 +27,7 @@ data Cell = Symbol Char
           | Digit Char
           | Dot
           deriving (Show, Eq)
+-- TODO: actually use this
 type Index = (Int, Int)
 
 data PartNumber = PartNumber (Int, Int) Int deriving (Show, Eq)
@@ -107,7 +111,7 @@ markNums ((x, y), c) acc@(out, str) = case (c, str) of
     (Digit c, _) -> (out, c:str)
     (_, [])      -> acc
     (_, s)       -> (pn:out, "")
-                    where x' = if (x - 1) < 0 then 0 else x + 1
+                    where x' = x + 1
                           pn = PartNumber (x',y) (read s)
 
 getPartNums :: [[((Int,Int), Cell)]] -> [[PartNumber]]
@@ -131,12 +135,15 @@ checkGearCount pm (x,y) =
     let xlist = [(x-1)..(x+1)]
         ylist = [(y-1)..(y+1)]
         idxs = [(a,b) | a <- xlist , b <- ylist]
-        f idx acc = case Map.lookup idx pm of Just pn -> pn:acc
+        --f idx acc = case Map.lookup idx pm of Just pn -> pn:acc
+        f idx acc = case Map.lookup idx pm of Just pn -> if notElem pn acc then pn:acc else acc
                                               Nothing -> acc
         pns = foldr f [] idxs
-        pns' = nub pns
-        f' (PartNumber _ n) acc = if acc == 0 then n else n * acc
-    in  if length pns' == 2 then foldr f' 1 pns' else 0
+        --pns' = nub pns
+        --f' (PartNumber _ n) acc = if acc == 0 then n else n * acc
+        f' (PartNumber _ n) acc = n * acc
+    --in  if length pns' == 2 then foldr f' 1 pns' else 0
+    in  if length pns == 2 then foldr f' 1 pns else 0
 
 sumGears :: PartMap -> [[((Int,Int), Cell)]] -> Int
 sumGears pm xs =
@@ -157,3 +164,32 @@ gearList pm xs =
     let f (xy, c) acc = case c of Symbol '*' -> acc + checkGearCount pm xy
                                   _          -> acc
     in  map (foldr f 0) xs
+
+spotCells :: [Index] -> [[(Index, Cell)]] -> [Cell]
+spotCells idxs xs =
+    let f (idx, c) acc = if idx `elem` idxs then c:acc else acc
+    in  concat $ map (foldr f []) xs
+
+getGearCount :: PartMap -> Index -> Int
+getGearCount pm (x,y) =
+    let xlist = [(x-1)..(x+1)]
+        ylist = [(y-1)..(y+1)]
+        idxs = [(a,b) | a <- xlist , b <- ylist]
+        --f idx acc = case Map.lookup idx pm of Just pn -> pn:acc
+        f idx acc = case Map.lookup idx pm of Just pn -> if notElem pn acc then pn:acc else acc
+                                              Nothing -> acc
+        pns = foldr f [] idxs
+        --pns' = nub pns
+    in  length pns
+
+listGearPns :: PartMap -> [[(Index, Cell)]] -> [Int]
+listGearPns pm xs =
+    let f (xy, c) acc = case c of Symbol '*' -> getGearCount pm xy : acc
+                                  _          -> acc
+    in  concat $ map (foldr f []) xs
+
+singleGearIdx :: PartMap -> [[(Index, Cell)]] -> [Index]
+singleGearIdx pm xs =
+    let f (xy, c) acc = case c of Symbol '*' -> if getGearCount pm xy == 1 then xy : acc else acc
+                                  _          -> acc
+    in  concat $ map (foldr f []) xs
