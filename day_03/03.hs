@@ -1,6 +1,5 @@
 import System.Environment (getArgs)
 import System.IO
-import Data.List (nub)
 import Data.Char (isDigit)
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -15,10 +14,6 @@ main = do
     -- TODO: only iterate over the contents once
     let pm = createPartMap (length $ head $ lines contents) $ getPartNums $ indexCells $ lines contents
     print $ sumGears pm $ indexCells $ lines contents
-    --let spots = concat $ gearSpots pm $ indexCells $ lines contents
-    --print $ spotCells spots $ indexCells $ lines contents
-    --print $ singleGearIdx pm $ indexCells $ lines contents
-    --print $ getPartNums $ indexCells $ lines contents
 
 -- data
 
@@ -27,11 +22,10 @@ data Cell = Symbol Char
           | Digit Char
           | Dot
           deriving (Show, Eq)
--- TODO: actually use this
 type Index = (Int, Int)
 
-data PartNumber = PartNumber (Int, Int) Int deriving (Show, Eq)
-type PartMap = Map (Int,Int) PartNumber
+data PartNumber = PartNumber Index Int deriving (Show, Eq)
+type PartMap = Map Index PartNumber
 -- functions
 
 readCell :: Char -> Cell
@@ -40,16 +34,15 @@ readCell c
     | isDigit c = Digit c
     | otherwise = Symbol c
 
-clip :: (Int,Int) -> Int -> Int
+clip :: Index -> Int -> Int
 clip (min,max) x =
     let x' = if x < min then min else x
         x'' = if x' > max then max else x'
     in  x''
 
--- this shoud do bounds checking...
--- TODO: make Schematic the first arg so it can be curried
-getAtIndex :: Int -> Int -> Schematic -> Cell
-getAtIndex x y s =
+-- NOTE: this doesn't do bounds checking
+getAtIndex :: Schematic -> Int -> Int -> Cell
+getAtIndex s x y =
     let row = s !! y
         col = row !! x
     in  readCell col
@@ -63,7 +56,7 @@ checkAdj s x y =
         xlist = [clipx (x-1) .. clipx (x+1)]
         ylist = [clipy (y-1) .. clipy (y+1)]
         idxs = [(a,b) | a <- xlist , b <- ylist]
-        f (a,b) acc = case getAtIndex a b s of Symbol _ -> True
+        f (a,b) acc = case getAtIndex s a b of Symbol _ -> True
                                                _        -> acc
     in  foldr f False idxs
 
@@ -95,7 +88,7 @@ getValidNums xs =
     in  concat zs
 
 -- part 2
-indexCells :: Schematic -> [[((Int,Int), Cell)]]
+indexCells :: Schematic -> [[(Index, Cell)]]
 indexCells s =
     let check = checkAdj s
         rows = length s
@@ -106,7 +99,7 @@ indexCells s =
         tupleZip (l,r) = zip l r
     in  zipWith zip idxs cells
 
-markNums :: ((Int,Int), Cell) -> ([PartNumber], String) -> ([PartNumber], String)
+markNums :: (Index, Cell) -> ([PartNumber], String) -> ([PartNumber], String)
 markNums ((x, y), c) acc@(out, str) = case (c, str) of
     (Digit c, _) -> (out, c:str)
     (_, [])      -> acc
@@ -114,7 +107,7 @@ markNums ((x, y), c) acc@(out, str) = case (c, str) of
                     where x' = x + 1
                           pn = PartNumber (x',y) (read s)
 
-getPartNums :: [[((Int,Int), Cell)]] -> [[PartNumber]]
+getPartNums :: [[(Index, Cell)]] -> [[PartNumber]]
 getPartNums xs =
     let ys = map (foldr markNums ([], "")) xs
         finish (i,(most, s)) = if s /= "" then PartNumber (0,i) (read s): most else most
@@ -130,66 +123,20 @@ createPartMap limit pns =
                                     where end = min limit $ x + digits n - 1
     in  Map.fromList $ concatMap f pns'
 
-checkGearCount :: PartMap -> (Int,Int) -> Int
+checkGearCount :: PartMap -> Index -> Int
 checkGearCount pm (x,y) =
     let xlist = [(x-1)..(x+1)]
         ylist = [(y-1)..(y+1)]
         idxs = [(a,b) | a <- xlist , b <- ylist]
-        --f idx acc = case Map.lookup idx pm of Just pn -> pn:acc
-        f idx acc = case Map.lookup idx pm of Just pn -> if notElem pn acc then pn:acc else acc
+        f idx acc = case Map.lookup idx pm of Just pn -> if pn `notElem` acc then pn:acc else acc
                                               Nothing -> acc
         pns = foldr f [] idxs
-        --pns' = nub pns
         --f' (PartNumber _ n) acc = if acc == 0 then n else n * acc
         f' (PartNumber _ n) acc = n * acc
-    --in  if length pns' == 2 then foldr f' 1 pns' else 0
     in  if length pns == 2 then foldr f' 1 pns else 0
 
-sumGears :: PartMap -> [[((Int,Int), Cell)]] -> Int
+sumGears :: PartMap -> [[(Index, Cell)]] -> Int
 sumGears pm xs =
     let f (xy, c) acc = case c of Symbol '*' -> acc + checkGearCount pm xy
                                   _          -> acc
     in  sum $ map (foldr f 0) xs
-
--- debug
-
---gearSpots :: PartMap -> [[((Int,Int), Cell)]] ->
-gearSpots pm xs =
-    let f (xy, c) acc = case c of Symbol '*' -> xy : acc
-                                  _          -> acc
-    in map (foldr f []) xs
-
-gearList :: PartMap -> [[((Int,Int), Cell)]] -> [Int]
-gearList pm xs =
-    let f (xy, c) acc = case c of Symbol '*' -> acc + checkGearCount pm xy
-                                  _          -> acc
-    in  map (foldr f 0) xs
-
-spotCells :: [Index] -> [[(Index, Cell)]] -> [Cell]
-spotCells idxs xs =
-    let f (idx, c) acc = if idx `elem` idxs then c:acc else acc
-    in  concat $ map (foldr f []) xs
-
-getGearCount :: PartMap -> Index -> Int
-getGearCount pm (x,y) =
-    let xlist = [(x-1)..(x+1)]
-        ylist = [(y-1)..(y+1)]
-        idxs = [(a,b) | a <- xlist , b <- ylist]
-        --f idx acc = case Map.lookup idx pm of Just pn -> pn:acc
-        f idx acc = case Map.lookup idx pm of Just pn -> if notElem pn acc then pn:acc else acc
-                                              Nothing -> acc
-        pns = foldr f [] idxs
-        --pns' = nub pns
-    in  length pns
-
-listGearPns :: PartMap -> [[(Index, Cell)]] -> [Int]
-listGearPns pm xs =
-    let f (xy, c) acc = case c of Symbol '*' -> getGearCount pm xy : acc
-                                  _          -> acc
-    in  concat $ map (foldr f []) xs
-
-singleGearIdx :: PartMap -> [[(Index, Cell)]] -> [Index]
-singleGearIdx pm xs =
-    let f (xy, c) acc = case c of Symbol '*' -> if getGearCount pm xy == 1 then xy : acc else acc
-                                  _          -> acc
-    in  concat $ map (foldr f []) xs
