@@ -9,7 +9,10 @@ main = do
     let times = map read $ tail $ words $ head $ lines contents
     let distances = map read $ tail $ words $ last $ lines contents
     print $ product $ zipWith waysToWin times distances
-    --putStrLn "Part 2:"
+    putStrLn "Part 2:"
+    let times' = read $ filter (/= ' ') $ unwords $ tail $ words $ head $ lines contents :: Int
+    let distances' = read $ filter (/= ' ') $ unwords $ tail $ words $ last $ lines contents :: Int
+    print $ waysToWin times' distances'
 
 -- *unsafe* quadratic equation (result could be NaN)
 quad :: Floating a => a -> a -> a -> (a, a)
