@@ -9,13 +9,13 @@ main = do
     contents <- readFile filename
     let contents' = lines contents
     putStrLn "Part 1:"
-    --putStrLn $ unlines $ flip (!!) 0 $ patterns $ contents'
-    --print $ mirror $ flip (!!) 0 $ patterns $ contents'
-    --print $ mirror $ transpose $ flip (!!) 0 $ patterns $ contents'
     let hor = (*) 100 $ sum $ catMaybes $ map mirror $ patterns $ contents'
     let vert = sum $ catMaybes $ map (mirror . transpose) $ patterns $ contents'
     print $ hor + vert
-    --putStrLn "Part 2:"
+    putStrLn "Part 2:"
+    let hor' = (*) 100 $ sum $ catMaybes $ map smudge $ patterns $ contents'
+    let vert' = sum $ catMaybes $ map (smudge . transpose) $ patterns $ contents'
+    print $ hor' + vert'
 
 type Pattern = [String]
 
@@ -29,6 +29,17 @@ mirror :: Pattern -> Maybe Int
 mirror p =
     let height = length p
         valid ps = and $ map (uncurry (==)) ps
+        combo i = zip (concat $ reverse $ take i p) (concat $ drop i p)
+        res = filter (snd) $ zip [1..] $ map (valid . combo) [1..height - 1]
+    in  case res of []      -> Nothing
+                    [(x,_)] -> Just x
+                    _       -> error "too many mirror results"
+                    --_       -> Nothing
+
+smudge :: Pattern -> Maybe Int
+smudge p =
+    let height = length p
+        valid ps = (==) 1 $ length $ filter (not . id) $ map (uncurry (==)) ps
         combo i = zip (concat $ reverse $ take i p) (concat $ drop i p)
         res = filter (snd) $ zip [1..] $ map (valid . combo) [1..height - 1]
     in  case res of []      -> Nothing
