@@ -8,10 +8,12 @@ main = do
     contents <- readFile filename
     let contents' = lines contents
     putStrLn "Part 1:"
-    putStrLn contents
-    putStrLn $ unlines $ tilt N $ contents'
     print $ load $ tilt N $ contents'
-    --putStrLn "Part 2:"
+    putStrLn "Part 2:"
+    putStrLn contents
+    --let cycles = take 4000000000 $ cycle [N,W,S,E]
+    let cycles = take 4000000 $ cycle [N,W,S,E]
+    putStrLn $ unlines $ foldl' (flip tilt) contents' cycles
 
 data Direction = N | S | E | W
 
