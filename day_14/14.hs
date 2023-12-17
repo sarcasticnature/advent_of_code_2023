@@ -1,6 +1,8 @@
 import System.Environment (getArgs)
 import System.IO
 import Data.List (transpose, foldl')
+import qualified Data.ByteString.Char8 as C
+import qualified Data.HashMap.Strict as HM
 
 main = do
     filename_list <- getArgs
@@ -12,10 +14,10 @@ main = do
     putStrLn "Part 2:"
     putStrLn contents
     --let cycles = take 4000000000 $ cycle [N,W,S,E]
-    let cycles = take 4000000 $ cycle [N,W,S,E]
-    putStrLn $ unlines $ foldl' (flip tilt) contents' cycles
+    putStrLn $ unlines $ snd $ iterate cycleCache (HM.empty, contents') !! 1000000
 
 data Direction = N | S | E | W
+type Cache = HM.HashMap C.ByteString C.ByteString
 
 shift :: String -> String
 shift s =
@@ -36,3 +38,13 @@ tilt W = map reverse . map shift . map reverse
 load :: [String] -> Int
 load ss = sum $ map (sum . z . reverse) $ transpose ss
     where z = zipWith (\i c -> if c == 'O' then i else 0) [1..]
+
+runCycle :: [String] -> [String]
+runCycle ss = foldl' (flip tilt) ss [N,W,S,E]
+
+cycleCache :: (Cache, [String]) -> (Cache, [String])
+cycleCache (cache,ss) = case HM.lookup bs cache of
+    Just bs' -> (cache, lines $ C.unpack bs')
+    Nothing  -> (HM.insert bs (C.pack $ unlines ss') cache, ss')
+    where bs = C.pack $ unlines ss
+          ss' = runCycle ss
