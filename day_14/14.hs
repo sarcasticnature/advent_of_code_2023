@@ -12,12 +12,13 @@ main = do
     putStrLn "Part 1:"
     print $ load $ tilt N $ contents'
     putStrLn "Part 2:"
-    putStrLn contents
-    --let cycles = take 4000000000 $ cycle [N,W,S,E]
-    putStrLn $ unlines $ snd $ iterate cycleCache (HM.empty, contents') !! 1000000
+    let (begin,end) = fixCycle contents'
+    print (begin,end)
+    let n = (1000000000 - begin) `mod` (end - begin)
+    print $ load $ iterate runCycle contents' !! (n + begin)
 
 data Direction = N | S | E | W
-type Cache = HM.HashMap C.ByteString C.ByteString
+type Cache = HM.HashMap C.ByteString (Int, C.ByteString)
 
 shift :: String -> String
 shift s =
@@ -42,9 +43,17 @@ load ss = sum $ map (sum . z . reverse) $ transpose ss
 runCycle :: [String] -> [String]
 runCycle ss = foldl' (flip tilt) ss [N,W,S,E]
 
-cycleCache :: (Cache, [String]) -> (Cache, [String])
-cycleCache (cache,ss) = case HM.lookup bs cache of
-    Just bs' -> (cache, lines $ C.unpack bs')
-    Nothing  -> (HM.insert bs (C.pack $ unlines ss') cache, ss')
+cycleCache :: (Int, Cache, [String]) -> (Int, Cache, [String])
+cycleCache (i, cache,ss) = case HM.lookup bs cache of
+    Just (_,bs') -> (i', cache, lines $ C.unpack bs')
+    Nothing  -> (i', HM.insert bs (i', (C.pack $ unlines ss')) cache, ss')
     where bs = C.pack $ unlines ss
           ss' = runCycle ss
+          i' = i + 1
+
+fixCycle :: [String] -> (Int, Int)
+fixCycle ss = fc (0, HM.empty, ss)
+    where fc (i, c, ss') = let (i', c', ss'') = cycleCache (i, c, ss')
+                           in  if c == c'
+                               then (fst $ c HM.! (C.pack $ unlines ss'), i')
+                               else fc (i + 1, c', ss'')
