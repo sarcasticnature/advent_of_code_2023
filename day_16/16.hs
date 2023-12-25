@@ -2,6 +2,8 @@ import System.Environment (getArgs)
 import System.IO
 import Control.Parallel
 import qualified Data.Vector.Unboxed as VU
+import Data.Word
+import Data.Bits
 
 main = do
     filename_list <- getArgs
@@ -11,10 +13,10 @@ main = do
     putStrLn "Part 1:"
     putStrLn contents
     --putStrLn $ unlines $ energyToList $ (\(d,_,ev) -> (d,ev)) $ parseGrid $ contents'
-    putStrLn $ unlines $ energyToList $ runBeam $ parseGrid $ contents'
+    putStrLn $ unlines $ energyToList $ runBeam $ parseGrid contents'
     --putStrLn "Part 2:"
 
-type EnergyVec = VU.Vector Bool
+type EnergyVec = VU.Vector Word8
 type GridVec = VU.Vector Char
 type Dimensions = (Int,Int)
 
@@ -25,7 +27,7 @@ parseGrid ss =
     let height = length ss
         width = length $ head ss
         grid = VU.fromList $ concat ss
-        energy = VU.replicate (height * width) False
+        energy = VU.replicate (height * width) 0x0
     in  ((width,height), grid, energy)
 
 uncat :: Int -> [a] -> [[a]]
@@ -34,7 +36,7 @@ uncat i xs = take i xs : uncat i (drop i xs)
 
 energyToList :: (Dimensions, EnergyVec) -> [String]
 energyToList ((w,_),ev) = map (map f) $ uncat w $ VU.toList ev
-    where f b = if b then '#' else '.'
+    where f x = if x .|. 0x0 == 0x0 then '.' else '#'
 
 fSlash :: Dir -> Dir
 fSlash d = case d of
@@ -61,7 +63,14 @@ dash d = case d of
     _ -> [E,W]
 
 merge :: EnergyVec -> EnergyVec -> EnergyVec
-merge a b = VU.zipWith (||) a b
+merge = VU.zipWith (.|.)
+
+dirBit :: Dir -> Word8
+dirBit d = case d of
+    N -> 0x1
+    S -> 0x2
+    E -> 0x4
+    W -> 0x8
 
 runBeam :: (Dimensions, GridVec, EnergyVec) -> (Dimensions, EnergyVec)
 runBeam ((w,h), gv, ev) =
@@ -83,12 +92,15 @@ runBeam ((w,h), gv, ev) =
             | c == '.'  = move (x,y) d
             | c == '/'  = move (x,y) $ fSlash d
             | c == '\\' = move (x,y) $ bSlash d
-            | c == '|'  = concat $ map (move (x,y)) $ bar d
-            | c == '-'  = concat $ map (move (x,y)) $ dash d
+            | c == '|'  = concatMap (move (x,y)) $ bar d
+            | c == '-'  = concatMap (move (x,y)) $ dash d
             where c = gv VU.! (x + (w * y))
         steps ev [] = ev
-        steps ev ((x,y,d):zs) = ev'' `par` ev''' `pseq` (merge ev'' ev''')
-            where ev' = ev VU.// [(x * y, True)]
+        steps ev ((x,y,d):zs) = if (/= 0) $ oldCell .&. dirBit d then ev else go
+            where idx = w * y + x
+                  oldCell = ev VU.! idx
+                  ev' = ev VU.// [(idx, (.|.) (dirBit d) oldCell)]
                   ev'' = steps ev' zs
                   ev''' = steps ev' $ dirs (x,y,d)
+                  go = ev'' `par` ev''' `pseq` merge ev'' ev'''
     in ((w,h), steps ev [(0,0,E)])
