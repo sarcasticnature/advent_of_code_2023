@@ -1,5 +1,6 @@
 import System.Environment (getArgs)
 import System.IO
+import Control.Parallel.Strategies (parMap, rdeepseq)
 
 main = do
     filename_list <- getArgs
@@ -7,7 +8,10 @@ main = do
     contents <- readFile filename
     putStrLn "Part 1:"
     print $ sum $ map combos $ parse $ lines contents
-    --putStrLn "Part 2:"
+    putStrLn "Part 2:"
+    print $ sum $ parMap rdeepseq combos $ map unfold $ parse $ lines contents
+
+-- part 1
 
 parse :: [String] -> [(String, [Int])]
 parse = map (p . words)
@@ -31,3 +35,9 @@ combos (ss,n:ns) =
         munch = case head ss of '#' -> 0
                                 _   -> combos (tail ss, n:ns)
     in  munch + valid
+
+--part 2
+
+unfold :: (String, [Int]) -> (String, [Int])
+unfold (s, ns) = (init $ concat $ replicate 5 (s ++ ['?']), concat $ replicate 5 ns)
+
